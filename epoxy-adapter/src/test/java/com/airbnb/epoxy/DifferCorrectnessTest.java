@@ -59,7 +59,9 @@ public class DifferCorrectnessTest {
 
   @Before
   public void setUp() {
-    testAdapter.registerAdapterDataObserver(testObserver);
+    if (SPEED_RUN) {
+      testAdapter.registerAdapterDataObserver(testObserver);
+    }
   }
 
   @Test

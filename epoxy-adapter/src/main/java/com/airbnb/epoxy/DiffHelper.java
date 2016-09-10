@@ -128,18 +128,18 @@ class DiffHelper {
    * Set the current list of models. The diff callbacks will be notified of the changes between the
    * current list and the last list that was set.
    */
-  public void notifyModelChanges() {
+  void notifyModelChanges() {
     // We use a list of the models as well as a map by their id,
     // so we can easily find them by both position and id
     swapCurrentStateToOld();
-    buildCurrentState();
+    int numInsertions = buildCurrentState();
 
     DiffResult diffUtilResult = null;
     List<UpdateOp> diff = null;
     if (USE_DIFF_UTIL) {
       diffUtilResult = DiffUtil.calculateDiff(diffUtilCallback);
     } else {
-      diff = buildDiff();
+      diff = buildDiff(numInsertions);
     }
 
     // Send out the proper notify calls for the diff. We remove our
@@ -200,7 +200,13 @@ class DiffHelper {
     }
   }
 
-  private void buildCurrentState() {
+  /**
+   * Clears and rebuilds {@link #currentStateList} and {@link #currentStateMap} to maintain the
+   * state of the current adapter models list.
+   *
+   * @return The number of new items added to the current state from the last state.
+   */
+  private int buildCurrentState() {
     int size = adapter.models.size();
 
     ModelState.release(currentStateList);
@@ -208,9 +214,18 @@ class DiffHelper {
     currentStateList.ensureCapacity(size);
     currentStateMap.clear();
 
+    int numInsertions = 0;
     for (int i = 0; i < size; i++) {
-      currentStateList.add(createStateForPosition(i));
+      ModelState stateForPosition = createStateForPosition(i);
+
+      if (stateForPosition.pair == null) {
+        numInsertions++;
+      }
+
+      currentStateList.add(stateForPosition);
     }
+
+    return numInsertions;
   }
 
   private ModelState createStateForPosition(int position) {
@@ -220,8 +235,15 @@ class DiffHelper {
 
     ModelState previousValue = currentStateMap.put(state.id, state);
     if (previousValue != null) {
+      // If this happens it means two models have the same id
       throw new IllegalStateException(
           "Duplicate ID for model: " + state + " Original: " + previousValue);
+    }
+
+    // Set up the pairing with the previous state
+    state.pair = oldStateMap.get(state.id);
+    if (state.pair != null) {
+      state.pair.pair = state;
     }
 
     return state;
@@ -241,20 +263,24 @@ class DiffHelper {
   /**
    * Create a list of operations that define the difference between {@link #oldStateList} and {@link
    * #currentStateList}.
+   *
+   * @param numInsertions The number of insertions that will exist in the diff
    */
-  private List<UpdateOp> buildDiff() {
+  private List<UpdateOp> buildDiff(int numInsertions) {
     List<UpdateOp> result = new ArrayList<>();
 
-    // The general approach is to first search for removals, then additions, and lastly changes.
+    // The approach is to first search for removals, then additions, moves, and lastly changes.
     // Focusing on one type of operation at a time makes it easy to coalesce batch changes.
     // When we identify an operation and add it to the
     // result list we update the positions of items in the oldStateList to reflect
     // the change, this way subsequent operations will use the correct, updated positions.
-    int removalCount = collectRemovals(result);
 
-    // Only need to check for insertions if new list is bigger
-    boolean hasInsertions = oldStateList.size() - removalCount != currentStateList.size();
-    if (hasInsertions) {
+    int numRemovals = oldStateList.size() + numInsertions - currentStateList.size();
+    if (numRemovals > 0) {
+      collectRemovals(result);
+    }
+
+    if (numInsertions > 0) {
       collectInsertions(result);
     }
 
@@ -268,10 +294,8 @@ class DiffHelper {
    * Find all removal operations and add them to the result list. The general strategy here is to
    * walk through the {@link #oldStateList} and check for items that don't exist in the new list.
    * Walking through it in order makes it easy to batch adjacent removals.
-   *
-   * @return The number of items removed
    */
-  private int collectRemovals(List<UpdateOp> result) {
+  private void collectRemovals(List<UpdateOp> result) {
     int removalCount = 0;
     UpdateOp lastRemoval = null;
     for (ModelState state : oldStateList) {
@@ -279,12 +303,8 @@ class DiffHelper {
       // so that future operations will reference the correct position
       state.position -= removalCount;
 
-      // This is our first time going through the list, so we
-      // look up the item with the matching id in the new
-      // list and hold a reference to it so that we can access it quickly in the future
-      state.pair = currentStateMap.get(state.id);
       if (state.pair != null) {
-        state.pair.pair = state;
+        // If the item has a pair then it wasn't removed
         continue;
       }
 
@@ -303,8 +323,6 @@ class DiffHelper {
     if (lastRemoval != null) {
       result.add(lastRemoval);
     }
-
-    return removalCount;
   }
 
   /**
@@ -389,6 +407,8 @@ class DiffHelper {
     List<UpdateOp> moveOps = new ArrayList<>();
 
     for (ModelState newItem : currentStateList) {
+      boolean newModelPairedWithSelf = false;
+
       if (newItem.pair == null) {
         // This item was inserted. However, insertions are done at the item's final position, and
         // aren't smart about inserting at a different position to take future moves into account.
@@ -403,6 +423,9 @@ class DiffHelper {
           // (for optimization purposes), but we can create a pair for this item to
           // track its position in the old list and move it back to its final position if necessary
           newItem.pairWithSelf();
+          // Track that we paired the model with itself so we can manually release it after we're
+          // done.
+          newModelPairedWithSelf = true;
         }
       }
 
@@ -470,6 +493,19 @@ class DiffHelper {
           break;
         }
       }
+
+      // If the two items we were comparing are the same then the old item is in its correct
+      // spot and we can move on to the next item.
+      if (nextOldItem == newItem.pair) {
+        nextOldItem = null;
+      }
+
+      if (newModelPairedWithSelf) {
+        // If we paired an item with itself then it is now moved to its correct place. We must
+        // release the pair we created here since it doesn't exist in the old list and wouldn't
+        // otherwise get released
+        ModelState.release(newItem.pair);
+      }
     }
   }
 
@@ -480,6 +516,11 @@ class DiffHelper {
    */
   private void updateItemPosition(ModelState item, List<UpdateOp> moveOps) {
     int size = moveOps.size();
+
+    if (size == 0) {
+      // No moves yet, return early to avoid creating an iterator
+      return;
+    }
 
     for (int i = item.lastMoveOp; i < size; i++) {
       UpdateOp moveOp = moveOps.get(i);
@@ -501,16 +542,13 @@ class DiffHelper {
    */
   @Nullable
   private ModelState getNextItemWithPair(Iterator<ModelState> iterator) {
-    ModelState nextItem = null;
-    while (nextItem == null && iterator.hasNext()) {
-      nextItem = iterator.next();
-
-      if (nextItem.pair == null) {
-        // Skip this one and go on to the next
-        nextItem = null;
+    while (iterator.hasNext()) {
+      ModelState nextItem = iterator.next();
+      if (nextItem.pair != null) {
+        return nextItem;
       }
     }
 
-    return nextItem;
+    return null;
   }
 }

@@ -59,7 +59,7 @@ class ModelState {
    * Used for an item inserted into the new list when we need to track moves that effect the
    * inserted item in the old list.
    */
-  public void pairWithSelf() {
+  void pairWithSelf() {
     if (pair != null) {
       throw new IllegalStateException("Already paired.");
     }
@@ -78,7 +78,13 @@ class ModelState {
     }
   }
 
-  public static void release(ModelState state) {
+  static void release(ModelState state) {
+    // Clear the pairing if it exists
+    if (state.pair != null) {
+      state.pair.pair = null;
+      state.pair = null;
+    }
+
     POOL.release(state);
   }
 
