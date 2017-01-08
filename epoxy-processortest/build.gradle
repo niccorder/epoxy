@@ -17,10 +17,14 @@ dependencies {
   testCompile rootProject.deps.roboelectric
   testCompile rootProject.deps.mockito
   testCompile rootProject.deps.googleTestingCompile
+
   testCompile files(org.gradle.internal.jvm.Jvm.current().getRuntimeJar())
   testCompile files(org.gradle.internal.jvm.Jvm.current().getToolsJar())
-  testCompile project(':epoxy-processor')
+
+  testAnnotationProcessor project(':epoxy-processor')
   testCompile project(':epoxy-processortest2')
+
+  annotationProcessor project(':epoxy-processor')
   compile project(':epoxy-annotations')
   compile project(':epoxy-adapter')
 }
