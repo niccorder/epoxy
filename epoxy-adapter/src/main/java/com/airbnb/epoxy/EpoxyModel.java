@@ -1,7 +1,9 @@
 package com.airbnb.epoxy;
 
+import android.support.annotation.CallSuper;
 import android.support.annotation.LayoutRes;
 
+import android.support.v7.widget.RecyclerView;
 import java.util.List;
 
 /**
@@ -93,6 +95,16 @@ public abstract class EpoxyModel<T> {
     }
 
     return layout;
+  }
+
+  /**
+   * Called when the view corresponding to this model failed to be recycled. This is left as a
+   * method stub since it is not always necessary to manually handle a failed recycle.
+   * @see EpoxyModel#onFailedToRecycleView()
+   */
+  @CallSuper
+  protected boolean onFailedToRecycleView() {
+    return false;
   }
 
   /**
