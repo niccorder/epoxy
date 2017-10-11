@@ -4,11 +4,14 @@ package com.airbnb.epoxy;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.RecyclerView;
 
+import com.airbnb.epoxy.util.MainThreadExecutor;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 /**
  * Helper to track changes in the models list.
@@ -21,12 +24,25 @@ class DiffHelper {
   private ArrayList<ModelState> currentStateList = new ArrayList<>();
   private Map<Long, ModelState> currentStateMap = new HashMap<>();
   private final BaseEpoxyAdapter adapter;
+  private final Executor diffExecutor;
+  private final Executor callbackExecutor;
   private final boolean immutableModels;
 
+  DiffHelper(BaseEpoxyAdapter adapter, boolean immutableModels, Executor diffExecutor) {
+    this(adapter, immutableModels, diffExecutor, MainThreadExecutor.get());
+  }
 
-  DiffHelper(BaseEpoxyAdapter adapter, boolean immutableModels) {
+  DiffHelper(
+      BaseEpoxyAdapter adapter,
+      boolean immutableModels,
+      Executor diffExecutor,
+      Executor callbackExecutor
+  ) {
     this.adapter = adapter;
     this.immutableModels = immutableModels;
+    this.diffExecutor = diffExecutor;
+    this.callbackExecutor = callbackExecutor;
+
     adapter.registerAdapterDataObserver(observer);
   }
 
@@ -128,18 +144,26 @@ class DiffHelper {
    * current list and the last list that was set.
    */
   void notifyModelChanges() {
-    UpdateOpHelper updateOpHelper = new UpdateOpHelper();
+    diffExecutor.execute(new Runnable() {
+      @Override
+      public void run() {
+        final UpdateOpHelper helper = buildDiff();
 
-    buildDiff(updateOpHelper);
-
-    // Send out the proper notify calls for the diff. We remove our
-    // observer first so that we don't react to our own notify calls
-    adapter.unregisterAdapterDataObserver(observer);
-    notifyChanges(updateOpHelper);
-    adapter.registerAdapterDataObserver(observer);
+        callbackExecutor.execute(new Runnable() {
+          @Override
+          public void run() {
+            notifyChanges(helper);
+          }
+        });
+      }
+    });
   }
 
-  private void notifyChanges(UpdateOpHelper opHelper) {
+  private void notifyChanges(final UpdateOpHelper opHelper) {
+    // We remove our observer first so that we don't react to our own notify calls
+    adapter.unregisterAdapterDataObserver(observer);
+
+    // delegate out the calls to our adapter.
     for (UpdateOp op : opHelper.opList) {
       switch (op.type) {
         case UpdateOp.ADD:
@@ -160,16 +184,23 @@ class DiffHelper {
           }
           break;
         default:
+          // Ensure we re-register our adapter data observer in case exception is caught.
+          adapter.registerAdapterDataObserver(observer);
           throw new IllegalArgumentException("Unknown type: " + op.type);
       }
     }
+
+    // Re-register our observer once update is completed.
+    adapter.registerAdapterDataObserver(observer);
   }
 
   /**
    * Create a list of operations that define the difference between {@link #oldStateList} and {@link
    * #currentStateList}.
    */
-  private UpdateOpHelper buildDiff(UpdateOpHelper updateOpHelper) {
+  private UpdateOpHelper buildDiff() {
+    final UpdateOpHelper updateOpHelper = new UpdateOpHelper();
+
     prepareStateForDiff();
 
     // The general approach is to first search for removals, then additions, and lastly changes.

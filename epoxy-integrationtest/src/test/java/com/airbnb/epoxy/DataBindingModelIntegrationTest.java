@@ -8,7 +8,9 @@ import android.widget.Button;
 import com.airbnb.epoxy.DataBindingEpoxyModel.DataBindingHolder;
 import com.airbnb.epoxy.integrationtest.BuildConfig;
 import com.airbnb.epoxy.integrationtest.ModelWithDataBindingBindingModel_;
+import com.airbnb.epoxy.util.ImmediateExecutor;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -30,18 +32,24 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 @Config(constants = BuildConfig.class, sdk = 21)
 public class DataBindingModelIntegrationTest {
 
+  private SimpleEpoxyController testController;
+
+  @Before
+  public void setUp() throws Exception {
+    testController = new SimpleEpoxyController(ImmediateExecutor.get(), ImmediateExecutor.get());
+  }
+
   @Test
   public void createDataBindingModel() {
-    SimpleEpoxyController controller = new SimpleEpoxyController();
     ModelWithDataBindingBindingModel_ firstModel = new ModelWithDataBindingBindingModel_()
         .stringValue("hello")
         .id(1);
 
-    controller.setModels(Collections.singletonList(firstModel));
+    testController.setModels(Collections.singletonList(firstModel));
 
     ControllerLifecycleHelper lifecycleHelper = new ControllerLifecycleHelper();
-    EpoxyViewHolder viewHolder = lifecycleHelper.createViewHolder(controller.getAdapter(), 0);
-    controller.getAdapter().onBindViewHolder(viewHolder, 0);
+    EpoxyViewHolder viewHolder = lifecycleHelper.createViewHolder(testController.getAdapter(), 0);
+    testController.getAdapter().onBindViewHolder(viewHolder, 0);
 
     DataBindingHolder dataBindingHolder = ((DataBindingHolder) viewHolder.objectToBind());
     assertNotNull(dataBindingHolder.getDataBinding());
@@ -53,9 +61,9 @@ public class DataBindingModelIntegrationTest {
         .stringValue("hello again")
         .id(1);
 
-    controller.setModels(Collections.singletonList(secondModel));
+    testController.setModels(Collections.singletonList(secondModel));
     List<Object> payloads = DiffPayloadTestUtil.payloadsWithChangedModels(firstModel);
-    controller.getAdapter().onBindViewHolder(viewHolder, 0, payloads);
+    testController.getAdapter().onBindViewHolder(viewHolder, 0, payloads);
 
     // Check that the requiredText was updated after the change payload
     assertEquals(secondModel.stringValue(), ((Button) viewHolder.itemView).getText());
@@ -63,16 +71,15 @@ public class DataBindingModelIntegrationTest {
 
   @Test
   public void fullyCreateDataBindingModel() {
-    SimpleEpoxyController controller = new SimpleEpoxyController();
     ModelWithDataBindingBindingModel_ firstModel = new ModelWithDataBindingBindingModel_()
         .stringValue("hello")
         .id(1);
 
-    controller.setModels(Collections.singletonList(firstModel));
+    testController.setModels(Collections.singletonList(firstModel));
 
     ControllerLifecycleHelper lifecycleHelper = new ControllerLifecycleHelper();
-    EpoxyViewHolder viewHolder = lifecycleHelper.createViewHolder(controller.getAdapter(), 0);
-    controller.getAdapter().onBindViewHolder(viewHolder, 0);
+    EpoxyViewHolder viewHolder = lifecycleHelper.createViewHolder(testController.getAdapter(), 0);
+    testController.getAdapter().onBindViewHolder(viewHolder, 0);
 
     DataBindingHolder dataBindingHolder = ((DataBindingHolder) viewHolder.objectToBind());
     assertNotNull(dataBindingHolder.getDataBinding());
@@ -84,9 +91,9 @@ public class DataBindingModelIntegrationTest {
         .stringValue("hello again")
         .id(1);
 
-    controller.setModels(Collections.singletonList(secondModel));
+    testController.setModels(Collections.singletonList(secondModel));
     List<Object> payloads = DiffPayloadTestUtil.payloadsWithChangedModels(firstModel);
-    controller.getAdapter().onBindViewHolder(viewHolder, 0, payloads);
+    testController.getAdapter().onBindViewHolder(viewHolder, 0, payloads);
 
     // Check that the requiredText was updated after the change payload
     assertEquals(secondModel.stringValue(), ((Button) viewHolder.itemView).getText());
@@ -94,9 +101,8 @@ public class DataBindingModelIntegrationTest {
 
   @Test
   public void typesWithOutHashCodeAreNotDiffed() {
-    SimpleEpoxyController controller = new SimpleEpoxyController();
     AdapterDataObserver observerMock = mock(AdapterDataObserver.class);
-    controller.getAdapter().registerAdapterDataObserver(observerMock);
+    testController.getAdapter().registerAdapterDataObserver(observerMock);
 
     ModelWithDataBindingBindingModel_ firstModel = new ModelWithDataBindingBindingModel_()
         .clickListener(new OnClickListener() {
@@ -107,7 +113,7 @@ public class DataBindingModelIntegrationTest {
         })
         .id(1);
 
-    controller.setModels(Collections.singletonList(firstModel));
+    testController.setModels(Collections.singletonList(firstModel));
     verify(observerMock).onItemRangeInserted(0, 1);
 
     ModelWithDataBindingBindingModel_ secondModel = new ModelWithDataBindingBindingModel_()
@@ -119,28 +125,27 @@ public class DataBindingModelIntegrationTest {
         })
         .id(1);
 
-    controller.setModels(Collections.singletonList(secondModel));
+    testController.setModels(Collections.singletonList(secondModel));
     verifyNoMoreInteractions(observerMock);
   }
 
   @Test
   public void typesWithHashCodeAreDiffed() {
-    SimpleEpoxyController controller = new SimpleEpoxyController();
     AdapterDataObserver observerMock = mock(AdapterDataObserver.class);
-    controller.getAdapter().registerAdapterDataObserver(observerMock);
+    testController.getAdapter().registerAdapterDataObserver(observerMock);
 
     ModelWithDataBindingBindingModel_ firstModel = new ModelWithDataBindingBindingModel_()
         .stringValue("value1")
         .id(1);
 
-    controller.setModels(Collections.singletonList(firstModel));
+    testController.setModels(Collections.singletonList(firstModel));
     verify(observerMock).onItemRangeInserted(0, 1);
 
     ModelWithDataBindingBindingModel_ secondModel = new ModelWithDataBindingBindingModel_()
         .stringValue("value2")
         .id(1);
 
-    controller.setModels(Collections.singletonList(secondModel));
+    testController.setModels(Collections.singletonList(secondModel));
     verify(observerMock).onItemRangeChanged(eq(0), eq(1), any());
     verifyNoMoreInteractions(observerMock);
   }

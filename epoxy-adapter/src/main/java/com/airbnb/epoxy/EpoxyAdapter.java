@@ -1,12 +1,15 @@
 
 package com.airbnb.epoxy;
 
+import android.os.AsyncTask;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Executor;
 
 /**
  * Allows you to easily combine different view types in the same adapter, and handles view holder
@@ -40,6 +43,11 @@ public abstract class EpoxyAdapter extends BaseEpoxyAdapter {
    * @see #notifyModelsChanged()
    */
   protected void enableDiffing() {
+    enableDiffing(AsyncTask.SERIAL_EXECUTOR);
+  }
+
+  @VisibleForTesting
+  void enableDiffing(final Executor executor) {
     if (diffHelper != null) {
       throw new IllegalStateException("Diffing was already enabled");
     }
@@ -52,7 +60,7 @@ public abstract class EpoxyAdapter extends BaseEpoxyAdapter {
       throw new IllegalStateException("You must have stable ids to use diffing");
     }
 
-    diffHelper = new DiffHelper(this, false);
+    diffHelper = new DiffHelper(this, false, executor);
   }
 
   @Override

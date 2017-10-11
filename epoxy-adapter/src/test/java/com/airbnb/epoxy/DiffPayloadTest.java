@@ -1,6 +1,9 @@
 package com.airbnb.epoxy;
 
+import android.os.AsyncTask;
 import android.support.v7.widget.RecyclerView.AdapterDataObserver;
+
+import com.airbnb.epoxy.util.ImmediateExecutor;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -51,7 +54,7 @@ public class DiffPayloadTest {
 
   @Test
   public void payloadsDisabled() {
-    DiffHelper diffHelper = new DiffHelper(adapter, false);
+    DiffHelper diffHelper = new DiffHelper(adapter, false, ImmediateExecutor.get());
 
     TestModel firstModel = new TestModel();
     models.add(firstModel);
@@ -69,7 +72,7 @@ public class DiffPayloadTest {
 
   @Test
   public void noPayloadsForNoChanges() {
-    DiffHelper diffHelper = new DiffHelper(adapter, true);
+    DiffHelper diffHelper = new DiffHelper(adapter, true, ImmediateExecutor.get());
 
     TestModel firstModel = new TestModel();
     models.add(firstModel);
@@ -85,7 +88,7 @@ public class DiffPayloadTest {
 
   @Test
   public void singlePayload() {
-    DiffHelper diffHelper = new DiffHelper(adapter, true);
+    DiffHelper diffHelper = new DiffHelper(adapter, true, ImmediateExecutor.get());
 
     TestModel firstModel = new TestModel();
     models.add(firstModel);
@@ -104,7 +107,7 @@ public class DiffPayloadTest {
 
   @Test
   public void batchPayload() {
-    DiffHelper diffHelper = new DiffHelper(adapter, true);
+    DiffHelper diffHelper = new DiffHelper(adapter, true, ImmediateExecutor.get());
 
     TestModel firstModel = new TestModel();
     TestModel secondModel = new TestModel();
@@ -126,7 +129,7 @@ public class DiffPayloadTest {
 
   @Test
   public void multiplePayloads() {
-    DiffHelper diffHelper = new DiffHelper(adapter, true);
+    DiffHelper diffHelper = new DiffHelper(adapter, true, ImmediateExecutor.get());
 
     TestModel firstModel = new TestModel();
     TestModel secondModel = new TestModel();

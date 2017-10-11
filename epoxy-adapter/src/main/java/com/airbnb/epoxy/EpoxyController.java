@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.support.v7.widget.GridLayoutManager.SpanSizeLookup;
 import android.support.v7.widget.RecyclerView;
 
@@ -12,6 +13,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
+import java.util.concurrent.Executor;
 
 import static com.airbnb.epoxy.ControllerHelperLookup.getHelperForController;
 
@@ -47,7 +49,7 @@ public abstract class EpoxyController {
    */
   private static final int DELAY_TO_CHECK_ADAPTER_COUNT_MS = 3000;
 
-  private final EpoxyControllerAdapter adapter = new EpoxyControllerAdapter(this);
+  private final EpoxyControllerAdapter adapter;
   private final ControllerHelper helper = getHelperForController(this);
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final List<Interceptor> interceptors = new ArrayList<>();
@@ -61,6 +63,20 @@ public abstract class EpoxyController {
   private List<ModelInterceptorCallback> modelInterceptorCallbacks;
   private int recyclerViewAttachCount = 0;
   private EpoxyModel<?> stagedModel;
+
+  public EpoxyController() {
+    this.adapter = new EpoxyControllerAdapter(this);
+  }
+
+  @VisibleForTesting
+  EpoxyController(final Executor diffExecutor) {
+    this.adapter = new EpoxyControllerAdapter(this, diffExecutor);
+  }
+
+  @VisibleForTesting
+  EpoxyController(final Executor diffExecutor, final Executor notifyExecutor) {
+    this.adapter = new EpoxyControllerAdapter(this, diffExecutor, notifyExecutor);
+  }
 
   /**
    * Call this to request a model update. The controller will schedule a call to {@link

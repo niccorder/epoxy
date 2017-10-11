@@ -3,12 +3,13 @@ package com.airbnb.epoxy;
 import android.support.v7.widget.RecyclerView.AdapterDataObserver;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.widget.FrameLayout;
 
 import com.airbnb.epoxy.integrationtest.BuildConfig;
 import com.airbnb.epoxy.integrationtest.ModelWithClickListener_;
 import com.airbnb.epoxy.integrationtest.ModelWithLongClickListener_;
+import com.airbnb.epoxy.util.ImmediateExecutor;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -35,9 +36,14 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 public class ModelClickListenerTest {
 
   private ControllerLifecycleHelper lifecycleHelper = new ControllerLifecycleHelper();
+  private TestController testController;
 
   static class TestController extends EpoxyController {
     private EpoxyModel<?> model;
+
+    TestController() {
+      super(ImmediateExecutor.get(), ImmediateExecutor.get());
+    }
 
     @Override
     protected void buildModels() {
@@ -77,16 +83,20 @@ public class ModelClickListenerTest {
     }
   }
 
+  @Before
+  public void setUp() throws Exception {
+    testController = new TestController();
+  }
+
   @Test
   public void basicModelClickListener() {
     final ModelWithClickListener_ model = new ModelWithClickListener_();
     ModelClickListener modelClickListener = spy(new ModelClickListener());
     model.clickListener(modelClickListener);
 
-    TestController controller = new TestController();
-    controller.setModel(model);
+    testController.setModel(model);
 
-    lifecycleHelper.buildModelsAndBind(controller);
+    lifecycleHelper.buildModelsAndBind(testController);
 
     View view = new View(RuntimeEnvironment.application);
     model.clickListener().onClick(view);
@@ -102,10 +112,9 @@ public class ModelClickListenerTest {
     ModelLongClickListener modelClickListener = spy(new ModelLongClickListener());
     model.clickListener(modelClickListener);
 
-    TestController controller = new TestController();
-    controller.setModel(model);
+    testController.setModel(model);
 
-    lifecycleHelper.buildModelsAndBind(controller);
+    lifecycleHelper.buildModelsAndBind(testController);
 
     View view = new View(RuntimeEnvironment.application);
     model.clickListener().onLongClick(view);
@@ -119,8 +128,7 @@ public class ModelClickListenerTest {
   public void modelClickListenerOverridesViewClickListener() {
     final ModelWithClickListener_ model = new ModelWithClickListener_();
 
-    TestController controller = new TestController();
-    controller.setModel(model);
+    testController.setModel(model);
 
     ViewClickListener viewClickListener = new ViewClickListener();
     model.clickListener(viewClickListener);
@@ -130,7 +138,7 @@ public class ModelClickListenerTest {
     model.clickListener(modelClickListener);
     assertNotSame(model.clickListener(), viewClickListener);
 
-    lifecycleHelper.buildModelsAndBind(controller);
+    lifecycleHelper.buildModelsAndBind(testController);
     assertNotNull(model.clickListener());
 
     model.clickListener().onClick(null);
@@ -142,8 +150,7 @@ public class ModelClickListenerTest {
   public void viewClickListenerOverridesModelClickListener() {
     final ModelWithClickListener_ model = new ModelWithClickListener_();
 
-    TestController controller = new TestController();
-    controller.setModel(model);
+    testController.setModel(model);
 
     ModelClickListener modelClickListener = new ModelClickListener();
     model.clickListener(modelClickListener);
@@ -151,7 +158,7 @@ public class ModelClickListenerTest {
     ViewClickListener viewClickListener = new ViewClickListener();
     model.clickListener(viewClickListener);
 
-    lifecycleHelper.buildModelsAndBind(controller);
+    lifecycleHelper.buildModelsAndBind(testController);
     assertNotNull(model.clickListener());
 
     model.clickListener().onClick(null);
@@ -163,14 +170,13 @@ public class ModelClickListenerTest {
   public void resetClearsModelClickListener() {
     final ModelWithClickListener_ model = new ModelWithClickListener_();
 
-    TestController controller = new TestController();
-    controller.setModel(model);
+    testController.setModel(model);
 
     ModelClickListener modelClickListener = spy(new ModelClickListener());
     model.clickListener(modelClickListener);
     model.reset();
 
-    lifecycleHelper.buildModelsAndBind(controller);
+    lifecycleHelper.buildModelsAndBind(testController);
     assertNull(model.clickListener());
   }
 
@@ -183,31 +189,29 @@ public class ModelClickListenerTest {
     ModelClickListener modelClickListener = new ModelClickListener();
     ViewClickListener viewClickListener = new ViewClickListener();
 
-    TestController controller = new TestController();
-
     AdapterDataObserver observerMock = mock(AdapterDataObserver.class);
-    controller.getAdapter().registerAdapterDataObserver(observerMock);
+    testController.getAdapter().registerAdapterDataObserver(observerMock);
 
     ModelWithClickListener_ model = new ModelWithClickListener_();
-    controller.setModel(model);
-    controller.requestModelBuild();
+    testController.setModel(model);
+    testController.requestModelBuild();
     verify(observerMock).onItemRangeInserted(eq(0), eq(1));
 
     model = new ModelWithClickListener_();
     model.clickListener(modelClickListener);
-    controller.setModel(model);
-    controller.requestModelBuild();
+    testController.setModel(model);
+    testController.requestModelBuild();
 
     // The second update shouldn't cause a item change
     model = new ModelWithClickListener_();
     model.clickListener(modelClickListener);
-    controller.setModel(model);
-    controller.requestModelBuild();
+    testController.setModel(model);
+    testController.requestModelBuild();
 
     model = new ModelWithClickListener_();
     model.clickListener(viewClickListener);
-    controller.setModel(model);
-    controller.requestModelBuild();
+    testController.setModel(model);
+    testController.requestModelBuild();
 
     verify(observerMock, times(2)).onItemRangeChanged(eq(0), eq(1), any());
     verifyNoMoreInteractions(observerMock);
@@ -215,33 +219,31 @@ public class ModelClickListenerTest {
 
   @Test
   public void viewClickListenerIsDiffed() {
-    TestController controller = new TestController();
-
     AdapterDataObserver observerMock = mock(AdapterDataObserver.class);
-    controller.getAdapter().registerAdapterDataObserver(observerMock);
+    testController.getAdapter().registerAdapterDataObserver(observerMock);
 
     ModelWithClickListener_ model = new ModelWithClickListener_();
-    controller.setModel(model);
-    controller.requestModelBuild();
+    testController.setModel(model);
+    testController.requestModelBuild();
     verify(observerMock).onItemRangeInserted(eq(0), eq(1));
 
     ViewClickListener viewClickListener = new ViewClickListener();
     model = new ModelWithClickListener_();
     model.clickListener(viewClickListener);
-    controller.setModel(model);
-    controller.requestModelBuild();
+    testController.setModel(model);
+    testController.requestModelBuild();
 
     // The second update shouldn't cause a item change
     model = new ModelWithClickListener_();
     model.clickListener(viewClickListener);
-    controller.setModel(model);
-    controller.requestModelBuild();
+    testController.setModel(model);
+    testController.requestModelBuild();
 
     ModelClickListener modelClickListener = new ModelClickListener();
     model = new ModelWithClickListener_();
     model.clickListener(modelClickListener);
-    controller.setModel(model);
-    controller.requestModelBuild();
+    testController.setModel(model);
+    testController.requestModelBuild();
 
     verify(observerMock, times(2)).onItemRangeChanged(eq(0), eq(1), any());
     verifyNoMoreInteractions(observerMock);

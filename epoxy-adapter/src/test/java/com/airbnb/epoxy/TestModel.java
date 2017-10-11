@@ -2,12 +2,26 @@ package com.airbnb.epoxy;
 
 import android.view.View;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public class TestModel extends EpoxyModel<View> {
   private static final Random RANDOM = new Random(10);
   boolean updated;
   private int value;
+
+  public static TestModel of(final int value) {
+    return new TestModel(value);
+  }
+
+  public static List<TestModel> listOf(final int... values) {
+    final List<TestModel> models = new ArrayList<>();
+    for (int i : values) {
+      models.add(of(i));
+    }
+    return models;
+  }
 
   public TestModel() {
     // Uses a random id to make sure the algorithm doesn't have different behavior for

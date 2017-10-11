@@ -1,21 +1,40 @@
 package com.airbnb.epoxy;
 
+import android.os.AsyncTask;
 import android.support.annotation.Nullable;
+import android.support.annotation.VisibleForTesting;
 import android.support.v7.widget.RecyclerView;
+
+import com.airbnb.epoxy.util.MainThreadExecutor;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Executor;
 
 public final class EpoxyControllerAdapter extends BaseEpoxyAdapter {
-  private final DiffHelper diffHelper = new DiffHelper(this, true);
   private final NotifyBlocker notifyBlocker = new NotifyBlocker();
+  private final DiffHelper diffHelper;
   private final EpoxyController epoxyController;
   private ControllerModelList currentModels = new ControllerModelList(20);
   private List<EpoxyModel<?>> copyOfCurrentModels;
   private int itemCount;
 
   EpoxyControllerAdapter(EpoxyController epoxyController) {
+    this(epoxyController, AsyncTask.SERIAL_EXECUTOR);
+  }
+
+  EpoxyControllerAdapter(EpoxyController epoxyController, Executor diffExecutor) {
+    this(epoxyController, diffExecutor, MainThreadExecutor.get());
+  }
+
+  @VisibleForTesting
+  EpoxyControllerAdapter(
+      EpoxyController epoxyController,
+      Executor diffExecutor,
+      Executor notifyExecutor
+  ) {
     this.epoxyController = epoxyController;
+    this.diffHelper = new DiffHelper(this, true, diffExecutor, notifyExecutor);
     registerAdapterDataObserver(notifyBlocker);
   }
 

@@ -5,7 +5,9 @@ import android.view.View;
 
 import com.airbnb.epoxy.integrationtest.BuildConfig;
 import com.airbnb.epoxy.integrationtest.ModelWithClickListener_;
+import com.airbnb.epoxy.util.ImmediateExecutor;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
@@ -25,10 +27,15 @@ import static org.mockito.Mockito.verify;
 public class OnModelBindListenerTest {
 
   private ControllerLifecycleHelper lifecycleHelper = new ControllerLifecycleHelper();
+  private TestController testController;
 
   static class TestController extends EpoxyController {
 
     private EpoxyModel model;
+
+    TestController() {
+      super(ImmediateExecutor.get(), ImmediateExecutor.get());
+    }
 
     @Override
     protected void buildModels() {
@@ -63,179 +70,168 @@ public class OnModelBindListenerTest {
     }
   }
 
+  @Before
+  public void setUp() throws Exception {
+    testController = new TestController();
+  }
+
   @Test
   public void onBindListenerGetsCalled() {
-    TestController controller = new TestController();
-
     BindListener bindListener = new BindListener();
     ModelWithClickListener_ model = new ModelWithClickListener_().onBind(bindListener);
-    controller.setModel(model);
+    testController.setModel(model);
 
     assertFalse(bindListener.called);
-    lifecycleHelper.buildModelsAndBind(controller);
+    lifecycleHelper.buildModelsAndBind(testController);
     assertTrue(bindListener.called);
   }
 
   @Test
   public void onUnbindListenerGetsCalled() {
-    TestController controller = new TestController();
-
     ModelWithClickListener_ model = new ModelWithClickListener_();
-    controller.setModel(model);
+    testController.setModel(model);
 
     UnbindListener unbindlistener = new UnbindListener();
     model.onUnbind(unbindlistener);
 
     assertFalse(unbindlistener.called);
-    lifecycleHelper.buildModelsAndBind(controller);
+    lifecycleHelper.buildModelsAndBind(testController);
     assertFalse(unbindlistener.called);
 
-    lifecycleHelper.recycleLastBoundModel(controller);
+    lifecycleHelper.recycleLastBoundModel(testController);
     assertTrue(unbindlistener.called);
   }
 
   @Test
   public void bindListenerChangesHashCode() {
-    TestController controller = new TestController();
-
     AdapterDataObserver observerMock = mock(AdapterDataObserver.class);
-    controller.getAdapter().registerAdapterDataObserver(observerMock);
+    testController.getAdapter().registerAdapterDataObserver(observerMock);
 
     ModelWithClickListener_ model = new ModelWithClickListener_();
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock).onItemRangeInserted(eq(0), eq(1));
 
     // shouldn't change
     model = new ModelWithClickListener_();
     model.onBind(null);
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock, never()).onItemRangeChanged(eq(0), eq(1), any());
 
     model = new ModelWithClickListener_();
     BindListener listener1 = new BindListener();
     model.onBind(listener1);
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock, times(1)).onItemRangeChanged(eq(0), eq(1), any());
 
     model = new ModelWithClickListener_();
     model.onBind(listener1);
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock, times(1)).onItemRangeChanged(eq(0), eq(1), any());
   }
 
   @Test
   public void nullBindListenerChangesHashCode() {
-    TestController controller = new TestController();
-
     AdapterDataObserver observerMock = mock(AdapterDataObserver.class);
-    controller.getAdapter().registerAdapterDataObserver(observerMock);
+    testController.getAdapter().registerAdapterDataObserver(observerMock);
 
     ModelWithClickListener_ model = new ModelWithClickListener_();
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock).onItemRangeInserted(eq(0), eq(1));
 
     model = new ModelWithClickListener_();
     model.onBind(new BindListener());
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
 
     model = new ModelWithClickListener_();
     model.onBind(null);
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
 
     verify(observerMock, times(2)).onItemRangeChanged(eq(0), eq(1), any());
   }
 
   @Test
   public void newBindListenerDoesNotChangeHashCode() {
-    TestController controller = new TestController();
-
     AdapterDataObserver observerMock = mock(AdapterDataObserver.class);
-    controller.getAdapter().registerAdapterDataObserver(observerMock);
+    testController.getAdapter().registerAdapterDataObserver(observerMock);
 
     ModelWithClickListener_ model = new ModelWithClickListener_();
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock).onItemRangeInserted(eq(0), eq(1));
 
     model = new ModelWithClickListener_();
     model.onBind(new BindListener());
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
 
     model = new ModelWithClickListener_();
     model.onBind(new BindListener());
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
 
     verify(observerMock).onItemRangeChanged(eq(0), eq(1), any());
   }
 
   @Test
   public void unbindListenerChangesHashCode() {
-    TestController controller = new TestController();
-
     AdapterDataObserver observerMock = mock(AdapterDataObserver.class);
-    controller.getAdapter().registerAdapterDataObserver(observerMock);
+    testController.getAdapter().registerAdapterDataObserver(observerMock);
 
     ModelWithClickListener_ model = new ModelWithClickListener_();
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock).onItemRangeInserted(eq(0), eq(1));
 
     // shouldn't change
     model = new ModelWithClickListener_();
     model.onUnbind(null);
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock, never()).onItemRangeChanged(eq(0), eq(1), any());
 
     model = new ModelWithClickListener_();
     UnbindListener listener1 = new UnbindListener();
     model.onUnbind(listener1);
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock, times(1)).onItemRangeChanged(eq(0), eq(1), any());
 
     model = new ModelWithClickListener_();
     model.onUnbind(listener1);
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock, times(1)).onItemRangeChanged(eq(0), eq(1), any());
   }
 
   @Test
   public void nullUnbindListenerChangesHashCode() {
-    TestController controller = new TestController();
-
     AdapterDataObserver observerMock = mock(AdapterDataObserver.class);
-    controller.getAdapter().registerAdapterDataObserver(observerMock);
+    testController.getAdapter().registerAdapterDataObserver(observerMock);
 
     ModelWithClickListener_ model = new ModelWithClickListener_();
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock).onItemRangeInserted(eq(0), eq(1));
 
     model = new ModelWithClickListener_();
     model.onUnbind(new UnbindListener());
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
 
     model = new ModelWithClickListener_();
     model.onUnbind(null);
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
 
     verify(observerMock, times(2)).onItemRangeChanged(eq(0), eq(1), any());
   }
 
   @Test
   public void newUnbindListenerDoesNotChangHashCode() {
-    TestController controller = new TestController();
-
     AdapterDataObserver observerMock = mock(AdapterDataObserver.class);
-    controller.getAdapter().registerAdapterDataObserver(observerMock);
+    testController.getAdapter().registerAdapterDataObserver(observerMock);
 
     ModelWithClickListener_ model = new ModelWithClickListener_();
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
     verify(observerMock).onItemRangeInserted(eq(0), eq(1));
 
     model = new ModelWithClickListener_();
     model.onUnbind(new UnbindListener());
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
 
     model = new ModelWithClickListener_();
     model.onUnbind(new UnbindListener());
-    controller.buildWithModel(model);
+    testController.buildWithModel(model);
 
     verify(observerMock).onItemRangeChanged(eq(0), eq(1), any());
   }
